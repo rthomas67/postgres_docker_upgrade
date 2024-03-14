@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  postgres_upgrade:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: postgres_upgrade
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - PGUSER=$POSTGRES_USER
+      - PGPASSWORD=$POSTGRES_PASSWORD
+    volumes:
+      - /var/lib/n8n_db_storage_volume:/var/lib/postgresql/data
+      - ./postgres_data_upgraded:/var/lib/postgresql/datanew
+    entrypoint: ["/bin/bash", "-c", "trap : TERM INT; sleep infinity & wait"]
