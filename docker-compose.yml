@@ -1,17 +1,58 @@
 version: '3.8'
 
 services:
-  postgres_upgrade:
-    build: 
+  postgres_new_init:
+    # This gets run first to build the image and initialize the new db files
+    # The normal postgres docker_entrypoint.sh remains active in this service.
+    image: postgres_upgrade_image
+    build:
       context: .
       dockerfile: Dockerfile
-    container_name: postgres_upgrade
+    container_name: postgres_init_db
+    profiles:
+      - initnewdb
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_NON_ROOT_USER
+      - POSTGRES_NON_ROOT_PASSWORD
+      - PGUSER=$POSTGRES_USER
+      - PGPASSWORD=$POSTGRES_PASSWORD
+    volumes:
+      - type: volume
+        source: new_version_data
+        target: /var/lib/postgresql/data
+  postgres_upgrade:
+    # This gets run second, with postgres (i.e. "postmaster") NOT active
+    # Both the old and new db files are mapped into this one as volumes.
+    image: postgres_upgrade_image
+    profiles:
+      - runupgrade
+    container_name: postgres_run_upgrade
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD
       - PGUSER=$POSTGRES_USER
       - PGPASSWORD=$POSTGRES_PASSWORD
     volumes:
-      - /var/lib/n8n_db_storage_volume:/var/lib/postgresql/data
-      - ./postgres_data_upgraded:/var/lib/postgresql/datanew
+      - type: volume
+        source: old_version_data
+        target: /var/lib/postgresql/olddata
+      - type: volume
+        source: new_version_data
+        target: /var/lib/postgresql/data
     entrypoint: ["/bin/bash", "-c", "trap : TERM INT; sleep infinity & wait"]
+volumes:
+  old_version_data:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: $PWD/postgres_data_old
+  new_version_data:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: $PWD/postgres_data_upgraded
