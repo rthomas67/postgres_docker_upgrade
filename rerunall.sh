@@ -33,6 +33,7 @@ sleep 2
 # Drop the database created by the container auto-init to prevent pg_upgrade from
 # failing with a conflict (database exists) error on CREATE DATABASE.
 # Note: psql requires a connection db, postgres at the end, to run any command with -c
+echo "Dropping the 'app' database from the newly initialized, empty postgres container..."
 docker exec ${DB_INIT_CONTAINER_NAME} bash -c 'psql -c "drop database $POSTGRES_DB" postgres'
 
 docker-compose --profile initnewdb stop
@@ -50,3 +51,6 @@ docker-compose --profile runupgrade start
 
 echo "Attaching to postgres_run_upgrade container.  Run upgradecheck and/or upgrade, then exit."
 docker exec -ti postgres_run_upgrade /bin/bash
+
+echo "Stopping the postgres_run_upgrade container.  Clean up the container and image now if you like."
+docker-compose --profile runupgrade stop

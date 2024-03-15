@@ -30,6 +30,15 @@ the last step (actually running pg_upgrade) is a manual step.
 so if this is used in and environment where it's **docker compose** (no dash) that will have
 to be adjusted.
 
+# Extra Stuff
+* Default password encryption / authentication changed from md5 to SCRAM in postgres v14
+  * If clients give an authentication error after upgrading, one quick remedy is to
+  switch it back.
+  * See: https://www.percona.com/blog/postgresql-14-and-recent-scram-authentication-changes-should-i-migrate-to-scram/
+  * Fix: Edit the line (probably right at the bottom) in .../data/pg_hba.conf that determines the default encrypt/auth method
+    * change: **host all all all scram-sha-256**
+    *     to: **host all all all md5**
+
 # Speedbumps
 This section is just a highlight list of some of the things that made this a pain to get working.
 * Starting the container as user postgres instead of root results in permissions errors
