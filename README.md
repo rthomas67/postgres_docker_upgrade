@@ -6,28 +6,32 @@ This repository contains a Dockerfile and a docker-compose.yml file that
 assist in the process of running pg_upgrade in a docker environment.
 * Dockerfile - builds a container image from the target version of postgres
 and copies the binary files from the docker container image of the source 
-version of postgres.  pg_admin requires both sets of pg_files.
-  * Note: All of the binary files from the source version image are copied,
-  which isn't optimal, but the image/container is temporary and that is
-  easier than trying to filter only the pg_* files.
+version of postgres.  pg_upgrade requires both sets of binaries.
+* docker-compose.yml contains two services that use the same image.
+  * The "first" one runs the new version of postgres to init new db files.
+  * The "second" one does NOT run postgres, but allows an attached shell (docker exec)
+  to be used to run "pg_upgrade"
 
 # Process
-1. Run **docker compose up --no-start --build**
-  * **docker-compose** on some platforms
-2. Run **docker compose start**
-  * Note: The docker-compose.yml file overrides the image entrypoint and **DOES NOT RUN** postgres.
-  * This container will run, doing essentially nothing on its own, until explicitly stopped.
-3. Run **docker exec -ti postgres_upgrade /bin/bash**
-  * This attaches a shell to the running "upgrade" container.
-4. Within the container shell, run **upgrade**
-  * This is an alias that provides the CLI switches for old and new binaries and config/data.
-5. Exit the docker container shell.
-6. Stop and delete the upgrade container **docker compose down**
-7. Stop the application-postgres container (and probably also the application container)
-8. Move postgres volume directories active-pg-volume-path-->temp-keep, new-->active-pg-volume-path
-9. Update the image version in application-postgres container used by the application (docker-compose)
+* **ATTENTION: DO NOT USE ANY OF THIS WITHOUT BACKING UP YOUR DB FIRST!!!**
+  * There.  You've been warned.  If you proceed, and things go wrong, it's YOUR responsibility.
+
+The process is mostly captured in the **rerunall.sh** shell script.
+* Make a copy of .env_template as .env and modify its contents to match your environment.
+* Shut down your old DB and copy all of its data files into a subdirectory named **postgres_data_old**
+* Then Either...
+  * Review what **rerunall.sh** does and then run it, or...
+  * Read through it and run each of the commands one by one (assuming you want to understand better what's going on.)
+* The script does the heavy lifting of setting up a docker environment where pg_upgrade can run, but 
+the last step (actually running pg_upgrade) is a manual step.
+  * The full pg_upgrade command line is baked into the docker image as an alias (**upgrade**) though, so it's not hard.
+    * There's also an alias to pre-check the upgrade environment (**upgradecheck**)
+* The script assumes the installed version of compose uses the **docker-compose** command,
+so if this is used in and environment where it's **docker compose** (no dash) that will have
+to be adjusted.
 
 # Speedbumps
+This section is just a highlight list of some of the things that made this a pain to get working.
 * Starting the container as user postgres instead of root results in permissions errors
 writing to the ".../datanew" mount, because when docker automatically creates it, root owns it.
   * ~~Fix: On the docker host: **sudo chown 999 ./postgres_data_upgraded**~~
@@ -52,7 +56,7 @@ is missing.
   pg_upgrade fails with a conflicting OID when it attempts to restore the "app" database.
   * Fix: If the POSTGRES_DB env var is present in the db init container, the first-initialized
   database (with OID 16834) will have that name instead of the POSTGRES_USER name.
-  Migration from the old data (presumably set up the same way) should then proceed without error
+  Migration from the old data (presumably set up the same way) ~~should then proceed without error~~
   because the OID and name will match on both sides.  Turns out this is moot anyway.  See the next item.
   * These pages don't necessarily explain what happens, but gave some hints to figure it out:
     * See: https://www.percona.com/blog/postgresql-upgrade-tricks-with-oid-columns-and-extensions/
