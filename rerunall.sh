@@ -5,6 +5,7 @@ OLD_DATA_DIR=postgres_data_old
 DB_INIT_CONTAINER_NAME=postgres_init_db
 
 docker-compose down --remove-orphans
+# Uncomment this if the Dockerfile changed, otherwise no need to remove the image.
 # docker image rm postgres_upgrade_image
 
 # If it's the first time running, create the newdata directory referenced by the 
@@ -25,7 +26,7 @@ docker-compose --profile initnewdb up --no-start --build
 # This initializes fresh db files
 docker-compose --profile initnewdb start
 echo "Waiting for postgres to finish initializing new db files."
-until docker logs postgres_init_db 2> /dev/null | grep -c "PostgreSQL init process complete; ready for startup"; do
+until docker logs postgres_init_db 2> /dev/null | grep -c "PostgreSQL init process complete"; do
     sleep 2
 done
 sleep 2
@@ -47,4 +48,5 @@ sudo chmod 700 ${OLD_DATA_DIR}
 docker-compose --profile runupgrade up --no-start
 docker-compose --profile runupgrade start
 
-echo "Ready for docker exec into running postgres_run_upgrade container..."
+echo "Attaching to postgres_run_upgrade container.  Run upgradecheck and/or upgrade, then exit."
+docker exec -ti postgres_run_upgrade /bin/bash
